@@ -1,5 +1,6 @@
 package com.cydeo.config;
 
+import com.cydeo.service.SecurityService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,38 +20,23 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-//    @Bean
-//    public UserDetailsService userDetailsService(PasswordEncoder encoder){
-//
-//        List<UserDetails> userList = new ArrayList<>();
-//
-//        userList.add(
-//                new User(
-//                        "mike",
-//                        encoder.encode("password"),
-//                        Arrays.asList(new SimpleGrantedAuthority("ROLE_ADMIN")))
-//        );
-//
-//        userList.add(
-//                new User(
-//                        "ozzy",
-//                        encoder.encode("password"),
-//                        Arrays.asList(new SimpleGrantedAuthority("ROLE_MANAGER")))
-//        );
-//
-//        return new InMemoryUserDetailsManager(userList);
-//    }
+private final SecurityService securityService;
+private final AuthSuccessHandler authSuccessHandler;
+
+    public SecurityConfig(SecurityService securityService, AuthSuccessHandler authSuccessHandler) {
+        this.securityService = securityService;
+        this.authSuccessHandler = authSuccessHandler;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         return http
                 .authorizeRequests() //checking for each request
-//                .antMatchers("/user/**").hasRole("ADMIN")
                 .antMatchers("/user/**").hasAuthority("Admin")
-//                .antMatchers("/project/**").hasRole("MANAGER")
-//                .antMatchers("/task/employee/**").hasRole("EMPLOYEE")
-//                .antMatchers("/task/**").hasRole("MANAGER")
+                .antMatchers("/project/**").hasAuthority("Manager")
+                .antMatchers("/task/employee/**").hasAuthority("Employee")
+                .antMatchers("/task/**").hasAuthority("Manager")
 //                .antMatchers("/task/**").hasAnyRole("EMPLOYEE", "ADMIN")
 //                .antMatchers("/task/**").hasAuthority("ROLE_EMPLOYEE")
                 .antMatchers( //we are going to let users see the following
@@ -64,10 +51,21 @@ public class SecurityConfig {
 //                .httpBasic() //this is the page that appears whenever I write localhost:8080
                 .formLogin()
                     .loginPage("/login")
-                    .defaultSuccessUrl("/welcome")
+//                    .defaultSuccessUrl("/welcome")
+                .successHandler(authSuccessHandler)
                     .failureUrl("/login?error=true")
                     .permitAll()
-                .and().build();
+                .and()
+                .logout()
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutSuccessUrl("/login")
+                .and()
+                .rememberMe()
+                    .tokenValiditySeconds(120)
+                    .key("cydeo")
+                    .userDetailsService(securityService)
+                .and()
+                .build();
 
     }
 
